@@ -1,0 +1,261 @@
+/* 全页面基础样式 */
+body {
+	font-family: 'Times New Roman', serif;
+	font-size: 2.5vw;
+	/* 修改自30px */
+	background-color: #000;
+	color: rgb(80, 170, 180);
+	margin: 0;
+	padding: 0;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+/* 控制面板主体样式 */
+.z_control {
+	width: 100%;
+	max-width: 80vw;
+	background-color: #000;
+	padding: 1.5vh;
+	/* 修改自20px */
+	box-shadow: 0 0 1vw rgba(0, 0, 0, 0.1);
+	/* 修改自10px */
+	text-align: center;
+}
+
+/* Logo 图片样式 */
+#u3_img {
+	max-width: 100%;
+	height: auto;
+	max-height: 10vh;
+	/* 修改自100px */
+	margin-bottom: 1.5vh;
+	/* 修改自20px */
+}
+
+/* 标题样式 */
+#u16_text {
+	margin-bottom: 1.5vh;
+	/* 修改自20px */
+}
+
+.topic {
+	font-size: 2.5vw;
+	/* 修改自30px */
+	color: rgb(255, 216, 0);
+	display: block;
+}
+
+/* 系统信息区域样式 */
+#u1 {
+	display: flex;
+	justify-content: space-between;
+	border-bottom: 0.1vh solid #eee;
+	/* 修改自1px */
+	padding-bottom: 1.5vh;
+	/* 修改自20px */
+	margin-bottom: 1.5vh;
+	/* 修改自20px */
+	text-align: left;
+}
+
+.info_column {
+	display: flex;
+	flex-direction: column;
+	width: 50%;
+}
+
+.info_column p {
+	margin: 0.5vh 0;
+	/* 修改自5px */
+	line-height: 1.5;
+	white-space: nowrap;
+	font-size: 3vw;
+}
+
+.translatable {
+	font-weight: bold;
+}
+
+.title {
+	color: rgb(80, 170, 180);
+}
+
+.parameter {
+	color: rgb(255, 216, 0);
+}
+
+#u1 span {
+	margin-left: 0.5vw;
+	/* 修改自5px */
+	display: inline-block;
+}
+
+/* 数字和代码使用等宽字体以提升可读性 */
+#u1 span[id^="l_"],
+#u1 span[id^="hk_"],
+#u1 span[id^="used_size"],
+#u1 span[id^="total_size"] {
+	font-family: monospace;
+}
+
+/* 按钮基础样式 */
+button {
+	font-family: 'Times New Roman', serif;
+	cursor: pointer;
+	border: none;
+	border-radius: 2vw;
+	/* 修改自20px */
+	padding: 1.5vh 2vw;
+	/* 修改自15px 20px */
+	font-size: 3vw;
+	/* 修改自21px */
+	transition: background-color 0.3s ease;
+	display: inline-block;
+	color: rgb(255, 255, 255);
+}
+
+/* 继续修改其余样式... */
+/* 产品信息与系统状态样式 */
+#u4,
+#u6,
+#u15 {
+	margin: 1vh 0;
+	/* 修改自10px */
+}
+
+/* 存储位置按钮样式 */
+.locationset_div {
+	display: flex;
+	justify-content: center;
+	margin-top: 1vh;
+	/* 修改自10px */
+	margin-bottom: 1vh;
+	/* 修改自10px */
+	flex-wrap: wrap;
+}
+
+.default_button {
+	background-color: rgb(80, 170, 180);
+	color: rgb(255, 216, 0);
+	display: block;
+	margin: 1vh auto;
+	/* 修改自10px */
+	min-width: 32vw;
+	/* 修改自360px */
+	min-height: 4vh;
+	/* 修改自120px */
+}
+
+.default_button:hover {
+	box-shadow: 0 0 1.5vw 0.5vw rgb(255, 216, 0), 0 0 2vw 1vw rgb(255, 216, 0);
+}
+
+.start_button {
+	background-color: rgb(255, 216, 0);
+	color: rgb(80, 170, 180);
+	font-size: 3.6vw;
+	/* 修改自32px */
+	display: block;
+	margin: 1vh auto;
+	/* 修改自10px */
+	min-width: 64vw;
+	/* 修改自360px */
+	min-height: 6vh;
+	/* 修改自120px */
+}
+
+.start_button:hover {
+	box-shadow: 0 0 0.9vw 0.6vw rgb(80, 170, 180), 0 0 1.5vw 0.9vw rgb(80, 170, 180);
+}
+
+.locationset_div button {
+	margin: 0.5vh 0.5vw;
+	/* 修改自5px */
+}
+
+/* 隐藏元素保持不显示 */
+[hidden] {
+	display: none !important;
+}
+
+.yellow_button {
+	box-shadow: 0 0 0.75vw 0.25vw rgb(255, 216, 0), 0 0 1vw 0.5vw rgb(255, 216, 0);
+}
+
+.red_button {
+	box-shadow: 0 0 0.75vw 0.25vw rgb(255, 0, 0), 0 0 1vw 0.5vw rgb(255, 0, 0);
+}
+
+.RTK_Info {
+	display: flex;
+	flex-direction: column;
+	gap: 1vh;
+	/* 修改自10px */
+	max-width: 30vw;
+	/* 修改自300px */
+	margin: auto;
+}
+
+.RTK_Info input[type="text"] {
+	padding: 1vh;
+	/* 修改自10px */
+	border: 0.1vh solid #ccc;
+	/* 修改自1px */
+	border-radius: 0.5vw;
+	/* 修改自5px */
+	box-shadow: 0px 0.2vw 0.2vw rgba(0, 0, 0, 0.1);
+	outline: none;
+}
+
+.RTK_Info input[type="text"]:focus {
+	border-color: #007bff;
+	box-shadow: 0px 0 1.2vw 0.8vw rgba(0, 123, 255, 0.8);
+}
+
+.FolderList {
+	max-width: 30vw;
+	/* 修改自300px */
+	margin: auto;
+}
+
+.FolderList select {
+	width: 100%;
+	padding: 1vh;
+	/* 修改自10px */
+	border: 0.1vh solid #ccc;
+	/* 修改自1px */
+	border-radius: 0.5vw;
+	/* 修改自5px */
+	background-color: white;
+	box-shadow: 0px 0.2vw 0.3vw rgba(0, 0, 0, 0.1);
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	cursor: pointer;
+	text-align-last: center;
+}
+
+.FolderList select:focus {
+	border-color: #007bff;
+	box-shadow: 0px 0 1.2vw 0.8vw rgba(0, 123, 255, 0.8);
+	outline: none;
+}
+
+.FolderList option {
+	padding: 1vh;
+	/* 修改自10px */
+	background-color: white;
+	text-align: center;
+}
+
+.disabled_button {
+	background-color: gray;
+	/* 设置为灰色背景 */
+	color: white;
+	/* 设置文本颜色 */
+	cursor: not-allowed;
+	/* 设置鼠标光标样式 */
+}

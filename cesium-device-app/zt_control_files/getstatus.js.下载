@@ -1,0 +1,969 @@
+var laser_prr = 100264;
+var lidar_conn_flag = 0;
+var lidar_stop_flag = 0;
+var lidar_disconn_flag = 0;
+var triStatusFlag = 0;
+
+function GetSetting(settingKey, callback) {
+	$.getJSON('/var/www/html/Settings/settings.json', function (data) {
+		if (data.hasOwnProperty(settingKey)) {
+			callback(null, data[settingKey]);  // 成功时调用回调函数
+		} else {
+			callback(new Error("Key not found"), null);  // 键不存在时返回错误
+		}
+	});
+}
+
+// 语言状态变量
+var languageState;
+
+//根据变量情况设置页面内容
+function DisplayContentByVariables() {
+	// 获取所有可翻译元素
+	var elements = document.getElementsByClassName('translatable');
+	for (var i = 0; i < elements.length; i++) {
+		switch (languageState) {
+			case 'CN':
+				elements[i].innerText = elements[i].getAttribute('data-chinese');
+				break;
+			case 'EN':
+				elements[i].innerText = elements[i].getAttribute('data-english');
+				break;
+			case 'SP':
+				elements[i].innerText = elements[i].getAttribute('data-spanish');
+				break;
+			case 'JP':
+				elements[i].innerText = elements[i].getAttribute('data-japanese');
+				break;
+			case 'KR':
+				elements[i].innerText = elements[i].getAttribute('data-korean');
+				break;
+			case 'RU':
+				elements[i].innerText = elements[i].getAttribute('data-russian');
+				break;
+			case 'AR':
+				elements[i].innerText = elements[i].getAttribute('data-arabic');
+				break;
+		}
+	}
+
+	// 更新输入元素的占位符
+	var inputs = document.querySelectorAll('.RTK_Info input[type="text"]');
+	for (var j = 0; j < inputs.length; j++) {
+		switch (languageState) {
+			case 'CN':
+				inputs[j].placeholder = inputs[j].getAttribute('data-chinese');
+				break;
+			case 'EN':
+				inputs[j].placeholder = inputs[j].getAttribute('data-english');
+				break;
+			case 'SP':
+				inputs[j].placeholder = inputs[j].getAttribute('data-spanish');
+				break;
+			case 'JP':
+				inputs[j].placeholder = inputs[j].getAttribute('data-japanese');
+				break;
+			case 'KR':
+				inputs[j].placeholder = inputs[j].getAttribute('data-korean');
+				break;
+			case 'RU':
+				inputs[j].placeholder = inputs[j].getAttribute('data-russian');
+				break;
+			case 'AR':
+				inputs[j].placeholder = inputs[j].getAttribute('data-arabic');
+				break;
+		}
+	}
+
+	// 可以根据需要更新其他的UI元素，例如按钮的文本
+	// 这部分代码可以根据具体需要来实现
+}
+
+//从JSON中读取语言设置并初始化页面
+function SetVariablesFromFile() {
+	$.getJSON('/LanguageSettings.json', function (data) {
+		if (data.use_chinese === 0) {
+			languageState = "CN";
+		} else if (data.use_chinese === -1) {
+			languageState = "EN";
+		} else if (data.use_chinese === -2) {
+			languageState = "SP";
+		} else if (data.use_chinese === -3) {
+			languageState = "JP";
+		} else if (data.use_chinese === -4) {
+			languageState = "KR";
+		} else if (data.use_chinese === -5) {
+			languageState = "RU";
+		} else if (data.use_chinese === -6) {
+			languageState = "AR";
+		}
+		DisplayContentByVariables();
+	});
+}
+
+//向服务端发送命令,改变JSON中的设置,重新读取JSON并加载页面
+function toggleLanguage(LanguageCode) {
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'SwitchLanguage', arg1: LanguageCode }, function (response) {
+		console.log(response);
+		setTimeout(SetVariablesFromFile, 1000); // 1000毫秒 = 1秒
+	});
+}
+
+// 语言设置函数
+function LanguageSetting() {
+	// 获取下拉菜单的当前选项
+	var selectedLanguage = document.getElementById("LanguageSelector").value;
+	// 根据选项打印相应的值
+	if (selectedLanguage === "CN") {
+		toggleLanguage(0);
+	} else if (selectedLanguage === "EN") {
+		toggleLanguage(-1);
+	} else if (selectedLanguage === "SP") {
+		toggleLanguage(-2);
+	} else if (selectedLanguage === "RU") {
+		toggleLanguage(-5);
+	}
+}
+
+var scale_2x_vref = 5.0 / 4096;
+function lm20_volts_to_degCel(volts) {
+	return -1481.96 + Math.sqrt(2.1962E6 + (1.8639 - volts) / 3.88E-6);
+}
+
+var lidarTimer = setInterval(function () {
+	$.getJSON('/lidar1.json', {}, function (data) {
+
+		//		 var pwr_v = data.lidar_s.hui * 11.0 * scale_2x_vref;	
+		//		 var lm20_temp = lm20_volts_to_degCel(data.lidar_s.htd * scale_2x_vref);	
+
+		document.getElementById("hk_t_dev").innerHTML = data.lidar_s.htd.toFixed(2);
+		document.getElementById("hk_u_in").innerHTML = data.lidar_s.hui;
+
+		document.getElementById("l_sync").innerHTML = data.lidar_s.sync_status;
+		// document.getElementById("lidar_return_type").innerHTML = data.lidar_s.return_type;
+	})
+}, 1000);
+
+var posTimer = setInterval(function () {
+	$.getJSON('/pos.json', {}, function (data) {
+		document.getElementById("l_sat_a").innerHTML = data.pos_s.sat_a;
+		document.getElementById("l_sat").innerHTML = data.pos_s.sat;
+		document.getElementById("l_lon").innerHTML = data.pos_s.lon;
+		document.getElementById("l_lat").innerHTML = data.pos_s.lat;
+		document.getElementById("l_alt").innerHTML = data.pos_s.alt;
+		document.getElementById("rtk").innerHTML = data.pos_s.rtk;
+	})
+}, 1000);
+function DisableSwitchRealTimePointStatus() {
+	// 获取按钮元素
+	var button = document.getElementById('SwitchRealTimePointStatus');
+
+	// 禁用按钮
+	button.disabled = true;
+
+	// 添加禁用样式
+	button.classList.add('disabled_button');
+}
+
+function EnableSwitchRealTimePointStatus() {
+	// 获取按钮元素
+	var button = document.getElementById('SwitchRealTimePointStatus');
+
+	// 取消禁用按钮
+	button.disabled = false;
+
+	// 移除禁用样式
+	button.classList.remove('disabled_button');
+}
+
+var statusTimer = setInterval(function () {
+	// currentLanguage = window.languageState;
+	$.getJSON('/status.json', {}, function (data) {
+		var record_start = document.getElementById('record_start');
+		if (data.status_s.pos_s == 'close') {
+			switch (languageState) {
+				case 'EN':
+					record_start.innerHTML = 'Record Start';
+					break;
+				case 'CN':
+					record_start.innerHTML = '开始记录';
+					break;
+				case 'SP':
+					record_start.innerHTML = 'Empezar a grabar';
+					break;
+				case 'JP':
+					record_start.innerHTML = '記録開始';
+					break;
+				case 'KR':
+					record_start.innerHTML = '녹화 시작';
+					break;
+				case 'RU':
+					record_start.innerHTML = 'Начать запись';
+					break;
+				case 'AR':
+					record_start.innerHTML = 'بدء التسجيل';
+					break;
+			}
+			record_start.className = 'translatable start_button';
+			// 启用实时点云状态切换
+			EnableSwitchRealTimePointStatus();
+		}
+		else {
+			switch (languageState) {
+				case 'EN':
+					record_start.innerHTML = 'Record End';
+					break;
+				case 'CN':
+					record_start.innerHTML = '结束记录';
+					break;
+				case 'SP':
+					record_start.innerHTML = 'Finalizar grabación';
+					break;
+				case 'JP':
+					record_start.innerHTML = '記録終了';
+					break;
+				case 'KR':
+					record_start.innerHTML = '녹화 종료';
+					break;
+				case 'RU':
+					record_start.innerHTML = 'Закончить запись';
+					break;
+				case 'AR':
+					record_start.innerHTML = 'إنهاء التسجيل';
+					break;
+			}
+			record_start.className = 'translatable start_button red_button';
+			// 禁用实时点云状态切换
+			DisableSwitchRealTimePointStatus();
+		}
+		if (data.status_s.shutdown_s == 'ok') {
+
+			clearInterval(lidarTimer);
+			clearInterval(posTimer);
+			clearInterval(storeTimer);
+			clearInterval(triTimer);
+			clearInterval(tristatusTimer);
+			clearInterval(machTimer);
+			clearInterval(dnsTimer);
+
+			shutdown_status_f();
+			lidardisconnect_status_f();
+		}
+		else {
+			if (data.status_s.pos_s == 'open') {
+				storeopen_status_f();
+			}
+			else {
+				storeclose_status_f();
+			}
+
+			if (data.status_s.l_conn_s == 'ok') {
+				lidarconnect_status_f();
+
+				if (data.status_s.lidar_s == 'open') {
+					mems_start_status_f();
+				}
+				else {
+					mems_stop_status_f();
+				}
+
+				if (data.status_s.l_cmd_s == 'ok') {
+					mems_unset_status_f();
+				}
+				else {
+					if (data.status_s.lidar_s == 'open') {
+						mems_unset_status_f();
+					}
+					else {
+						mems_set_status_f();
+					}
+				}
+
+			}
+			else {
+				lidar_disconn_flag++;
+				if (lidar_disconn_flag == 3) {
+					lidardisconnect_status_f();
+					lidar_disconn_flag = 0;
+				}
+			}
+
+			if (data.status_s.tri_s == 'open') {
+				triopen_status_f();
+				triStatusFlag = 1;
+			}
+			else {
+				triStatusFlag = 0;
+				triclose_status_f();
+			}
+		}
+	})
+}, 1000);
+
+// 设置一个定时器，每隔1000毫秒（即1秒）执行一次函数体内的代码
+var storeTimer = setInterval(function () {
+	// 使用jQuery的getJSON方法异步请求服务器上名为'/store.json'的资源
+	$.getJSON('/store.json', {}, function (data) {
+		// 将获取到的数据中的总存储大小（单位为字节）转换为KB并四舍五入到整数，然后显示在id为"total_size1"的元素中
+		document.getElementById("total_size1").innerHTML = (data.sd_s.total_size / 1024).toFixed(0);
+		// 将获取到的数据中的已用存储大小（单位为字节）转换为KB并四舍五入到整数，然后显示在id为"used_size1"的元素中
+		document.getElementById("used_size1").innerHTML = (data.sd_s.used_size / 1024).toFixed(0);
+		// 直接显示获取到的存储位置信息在id为"mem_location"的元素中
+		document.getElementById("mem_location").innerHTML = data.memlocation;
+
+		// 判断存储位置是否为内部存储
+		if (data.memlocation == 'inner') {
+			// 获取id为'storelocation_bt'的元素
+			var storelocation_bt = document.getElementById('storelocation_bt');
+			// 根据当前语言设置文本
+			switch (languageState) {
+				case 'EN':
+					storelocation_bt.innerHTML = 'Store in SSD';
+					break;
+				case 'CN':
+					storelocation_bt.innerHTML = '内部存储';
+					break;
+				case 'SP':
+					storelocation_bt.innerHTML = 'Almacenamiento interno';
+					break;
+				case 'JP':
+					storelocation_bt.innerHTML = 'SSDに保存';
+					break;
+				case 'KR':
+					storelocation_bt.innerHTML = 'SSD에 저장';
+					break;
+				case 'RU':
+					storelocation_bt.innerHTML = 'Хранение в SSD';
+					break;
+				case 'AR':
+					storelocation_bt.innerHTML = 'التخزين في SSD';
+					break;
+			}
+			// 设置该元素的value属性和class属性
+			storelocation_bt.value = 'inner';
+			storelocation_bt.className = 'translatable default_button';
+		}
+		else if (data.memlocation == 'extra') {
+			// 获取id为'storelocation_bt'的元素
+			var storelocation_bt = document.getElementById('storelocation_bt');
+			// 根据当前语言设置文本
+			switch (languageState) {
+				case 'EN':
+					storelocation_bt.innerHTML = 'Store in Card';
+					break;
+				case 'CN':
+					storelocation_bt.innerHTML = '外部存储';
+					break;
+				case 'SP':
+					storelocation_bt.innerHTML = 'Almacenamiento externo';
+					break;
+				case 'JP':
+					storelocation_bt.innerHTML = 'カードに保存';
+					break;
+				case 'KR':
+					storelocation_bt.innerHTML = '카드에 저장';
+					break;
+				case 'RU':
+					storelocation_bt.innerHTML = 'Хранение на карте';
+					break;
+				case 'AR':
+					storelocation_bt.innerHTML = 'التخزين في البطاقة';
+					break;
+			}
+			// 设置该元素的value属性和class属性
+			storelocation_bt.value = 'extra';
+			storelocation_bt.className = 'translatable default_button yellow_button';
+		}
+
+		// 获取id为'TransToSD'的元素
+		var TransToSD = document.getElementById('TransToSD');
+		// 判断是否进行转存
+		if (data.DownloadToSDCard == '0') {
+			// 根据当前语言设置文本
+			switch (languageState) {
+				case 'EN':
+					TransToSD.innerHTML = 'Ready to copy';
+					break;
+				case 'CN':
+					TransToSD.innerHTML = '准备转存';
+					break;
+				case 'SP':
+					TransToSD.innerHTML = 'Prepárate para transferir';
+					break;
+				case 'JP':
+					TransToSD.innerHTML = 'コピー準備完了';
+					break;
+				case 'KR':
+					TransToSD.innerHTML = '복사 준비 완료';
+					break;
+				case 'RU':
+					TransToSD.innerHTML = 'Готов к копированию';
+					break;
+				case 'AR':
+					TransToSD.innerHTML = 'جاهز للنسخ';
+					break;
+			}
+			TransToSD.className = 'default_button';
+		}
+		else if (data.DownloadToSDCard == '1') {
+			// 根据当前语言设置文本
+			switch (languageState) {
+				case 'EN':
+					TransToSD.innerHTML = 'Transferring';
+					break;
+				case 'CN':
+					TransToSD.innerHTML = '转存中';
+					break;
+				case 'SP':
+					TransToSD.innerHTML = 'Transferencia';
+					break;
+				case 'JP':
+					TransToSD.innerHTML = '転送中';
+					break;
+				case 'KR':
+					TransToSD.innerHTML = '전송 중';
+					break;
+				case 'RU':
+					TransToSD.innerHTML = 'Передача данных';
+					break;
+				case 'AR':
+					TransToSD.innerHTML = 'جاري النقل';
+					break;
+			}
+			TransToSD.className = 'default_button yellow_button';
+		}
+		else {
+			TransToSD.innerHTML = 'error'; // 这里可以根据需要添加对应的中英文错误信息
+		}
+
+		// 获取id为'Transfer_Selected_Folder'的元素
+		var Transfer_Selected_Folder = document.getElementById('Transfer_Selected_Folder');
+		// 判断是否进行转存
+		if (data.DownloadToSDCard == '0') {
+			// 根据当前语言设置文本
+			switch (languageState) {
+				case 'EN':
+					TransToSD.innerHTML = 'Transfer selected folder';
+					break;
+				case 'CN':
+					TransToSD.innerHTML = '转存选中的文件夹';
+					break;
+				case 'SP':
+					TransToSD.innerHTML = 'Transferir carpeta seleccionada';
+					break;
+				case 'JP':
+					TransToSD.innerHTML = '選択したフォルダを転送';
+					break;
+				case 'KR':
+					TransToSD.innerHTML = '선택한 폴더 전송';
+					break;
+				case 'RU':
+					TransToSD.innerHTML = 'Передача выбранной папки';
+					break;
+				case 'AR':
+					TransToSD.innerHTML = 'نقل المجلد المحدد';
+					break;
+			}
+			Transfer_Selected_Folder.className = 'translatable default_button';
+		}
+		else if (data.DownloadToSDCard == '1') {
+			// 根据当前语言设置文本
+			switch (languageState) {
+				case 'EN':
+					TransToSD.innerHTML = 'Transferring';
+					break;
+				case 'CN':
+					TransToSD.innerHTML = '转存中';
+					break;
+				case 'SP':
+					TransToSD.innerHTML = 'Transferencia';
+					break;
+				case 'JP':
+					TransToSD.innerHTML = '転送中';
+					break;
+				case 'KR':
+					TransToSD.innerHTML = '전송 중';
+					break;
+				case 'RU':
+					TransToSD.innerHTML = 'Передача';
+					break;
+				case 'AR':
+					TransToSD.innerHTML = 'جاري النقل';
+					break;
+			}
+			Transfer_Selected_Folder.className = 'translatable default_button yellow_button';
+		}
+		else {
+			Transfer_Selected_Folder.innerHTML = 'error'; // 这里可以根据需要添加对应的中英文错误信息
+		}
+	})
+}, 1000);
+
+//显示控制点数量到页面
+function countControlPoints() {
+	$.getJSON('/controlpoint.json', function (data) {
+		// 直接使用数组的长度作为控制点的数量
+		var controlPointCount = data.length;
+		document.getElementById("tri_tx_cnt").innerHTML = controlPointCount;
+	});
+}
+
+//切换网关
+function SwitchGateway_CMD() {
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'SwitchGateway_CMD' }, function (response) {
+		console.log(response);
+	});
+}
+
+//获取网关信息
+function GetGateway() {
+	$.getJSON('/gateway_info.json', function (data) {
+		var SwitchGateway_CMD = document.getElementById('SwitchGateway_CMD');
+		if (data.gateway == '192.168.0.253') {
+			switch (languageState) {
+				case 'EN':
+					SwitchGateway_CMD.innerHTML = 'Use hotspot';
+					break;
+				case 'CN':
+					SwitchGateway_CMD.innerHTML = '使用热点';
+					break;
+				case 'SP':
+					SwitchGateway_CMD.innerHTML = 'Usar punto de acceso';
+					break;
+				case 'JP':
+					SwitchGateway_CMD.innerHTML = 'ホットスポットを使用';
+					break;
+				case 'KR':
+					SwitchGateway_CMD.innerHTML = '핫스팟 사용';
+					break;
+				case 'RU':
+					SwitchGateway_CMD.innerHTML = 'Использовать хот-спот';
+					break;
+				case 'AR':
+					SwitchGateway_CMD.innerHTML = 'استخدم نقطة الاتصال';
+					break;
+			}
+		} else if (data.gateway == '192.168.0.254') {
+			switch (languageState) {
+				case 'EN':
+					SwitchGateway_CMD.innerHTML = 'Use 4G';
+					break;
+				case 'CN':
+					SwitchGateway_CMD.innerHTML = '使用4G';
+					break;
+				case 'SP':
+					SwitchGateway_CMD.innerHTML = 'Usa 4G';
+					break;
+				case 'JP':
+					SwitchGateway_CMD.innerHTML = '4Gを使用';
+					break;
+				case 'KR':
+					SwitchGateway_CMD.innerHTML = '4G 사용';
+					break;
+				case 'RU':
+					SwitchGateway_CMD.innerHTML = 'Использовать 4G';
+					break;
+				case 'AR':
+					SwitchGateway_CMD.innerHTML = 'استخدم 4G';
+					break;
+			}
+		}
+	});
+}
+
+//切换实时点云状态
+function SwitchRealTimePointStatus_CMD() {
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'SwitchRealTimePointStatus' }, function (response) {
+		console.log(response);
+	});
+}
+
+//获取实时点云状态
+function GetRealTimePointStatus() {
+	$.getJSON('/Settings/settings.json', function (data) {
+		var SwitchRealTimePointStatus = document.getElementById('SwitchRealTimePointStatus');
+		if (data.RealTimePointStatus == 'ON') {
+			switch (languageState) {
+				case 'EN':
+					SwitchRealTimePointStatus.innerHTML = 'Point cloud off';
+					break;
+				case 'CN':
+					SwitchRealTimePointStatus.innerHTML = '关闭实时点云';
+					break;
+				case 'SP':
+					SwitchRealTimePointStatus.innerHTML = 'Apagar nube de puntos en tiempo real';
+					break;
+				case 'JP':
+					SwitchRealTimePointStatus.innerHTML = 'リアルタイム点群をオフにする';
+					break;
+				case 'KR':
+					SwitchRealTimePointStatus.innerHTML = '실시간 포인트 클라우드 끄기';
+					break;
+				case 'RU':
+					SwitchRealTimePointStatus.innerHTML = 'Выключить реальное облако точек';
+					break;
+				case 'AR':
+					SwitchRealTimePointStatus.innerHTML = 'إيقاف سحابة النقاط الزمنية الحقيقية';
+					break;
+			}
+		} else {
+			switch (languageState) {
+				case 'EN':
+					SwitchRealTimePointStatus.innerHTML = 'Point cloud on';
+					break;
+				case 'CN':
+					SwitchRealTimePointStatus.innerHTML = '开启实时点云';
+					break;
+				case 'SP':
+					SwitchRealTimePointStatus.innerHTML = 'Encender nube de puntos en tiempo real';
+					break;
+				case 'JP':
+					SwitchRealTimePointStatus.innerHTML = 'リアルタイム点群をオンにする';
+					break;
+				case 'KR':
+					SwitchRealTimePointStatus.innerHTML = '실시간 포인트 클라우드 켜기';
+					break;
+				case 'RU':
+					SwitchRealTimePointStatus.innerHTML = 'Включить реальное облако точек';
+					break;
+				case 'AR':
+					SwitchRealTimePointStatus.innerHTML = 'تشغيل سحابة النقاط الزمنية الحقيقية';
+					break;
+			}
+		}
+	});
+}
+
+//获取NtripStatus
+function GetNtripStatus() {
+	$.getJSON('/Settings/settings.json', function (data) {
+		document.getElementById("NtripStatus").innerHTML = data.NtripStatus;
+	});
+}
+
+//获取采集时间
+function GetTimeDifference() {
+	$.getJSON('/Settings/settings.json', function (data) {
+		var TimeDifferenceElement = document.getElementById('TimeDifference');
+		if (data.StartTime !== "0") {
+			var startTime = new Date(
+				data.StartTime.slice(0, 4),
+				data.StartTime.slice(4, 6) - 1,
+				data.StartTime.slice(6, 8),
+				data.StartTime.slice(8, 10),
+				data.StartTime.slice(10, 12),
+				data.StartTime.slice(12, 14)
+			);
+			var currentTime = new Date();
+			var timeDifference = currentTime - startTime;
+
+			var hours = Math.floor(timeDifference / 3600000);
+			var minutes = Math.floor((timeDifference % 3600000) / 60000);
+			var seconds = Math.floor((timeDifference % 60000) / 1000);
+
+			TimeDifferenceElement.innerHTML = `${hours} : ${minutes} : ${seconds} `;
+		} else {
+			TimeDifferenceElement.innerHTML = '0';
+		}
+	});
+}
+// //获取实时点云设置
+// function GetRealTimePointStatus() {
+// 	GetSetting('color', function (err, value) {
+// 		if (err) {
+// 			console.error(err);  // 处理错误
+// 		} else {
+// 			console.log("Received value:", value);  // 使用返回的值
+// 		}
+// 	});
+// }
+
+//循环执行函数
+var triTimer = setInterval(function () {
+	countControlPoints();
+	GetGateway();
+	GetRealTimePointStatus();
+	GetTimeDifference();
+	GetNtripStatus();
+}, 1000);
+
+var tristatusTimer = setInterval(function () {
+	$.getJSON('/tristatus.json', {}, function (data) {
+		if (data.tri_s.type == 'inner') {
+			var trigerlocation_bt = document.getElementById('trigerlocation_bt');
+			trigerlocation_bt.innerHTML = 'in trigger';
+			trigerlocation_bt.value = 'inner';
+
+			if (triStatusFlag == 0) {
+				trigerlocation_bt.className = 'location_box inner';
+				triinner_status();
+			}
+
+		}
+		else if (data.tri_s.type == 'extra') {
+			var trigerlocation_bt = document.getElementById('trigerlocation_bt');
+			trigerlocation_bt.innerHTML = 'ex trigger';
+			trigerlocation_bt.value = 'extra';
+			trigerlocation_bt.className = 'location_box extra';
+
+			triextra_status();
+		}
+	})
+
+}, 1000);
+
+var machTimer = setInterval(function () {
+	$.getJSON('/mach.json', {}, function (data) {
+		document.getElementById("product_model").innerHTML = data.dev_type + data.dev_serial;
+		document.getElementById("product_serial").innerHTML = data.dev_serial;
+	})
+}, 2000);
+
+var dnsTimer = setInterval(function () {
+	$.getJSON('/dns.json', {}, function (data) {
+		document.getElementById("dns_status").innerHTML = data.dns_s.dns;
+	})
+}, 2000);
+
+// paramInit();
+async function fetchFile(filePath) {
+	const response = await fetch(filePath);
+	if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	}
+	const text = await response.text();
+	const [Y, M, D] = text.split(' ').map(Number);
+	document.getElementById("License_until").innerHTML = Y + "Y " + M + "M " + D + "D";
+	// document.getElementById("Month").innerHTML = M;
+	// document.getElementById("Day").innerHTML = D;
+}
+
+$(document).ready(function () {
+	// 页面加载完毕时自动加载一次文件夹列表
+	refreshFolderList();
+});
+
+// 定义刷新文件夹列表的函数
+function refreshFolderList() {
+	$.getJSON('/dir.json', {}, function (data) {
+		var folderList = document.getElementById("folderList");
+		folderList.innerHTML = ''; // 清空现有的选项
+
+		data.forEach(function (folder) {
+			var option = document.createElement('option');
+			option.value = folder.dir_name;
+			option.innerText = folder.dir_name + " (" + convertBytesToMB(folder.dir_size) + " MB)";
+			folderList.appendChild(option);
+		});
+	});
+}
+
+// 定义的测试函数
+function displaySelectedFolder() {
+	var folderList = document.getElementById("folderList");
+	var selectedFolder = "/media/internal/" + folderList.value;
+	console.log('选中的文件夹:', selectedFolder);
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'TransToSD_Fix', arg1: selectedFolder }, function (response) {
+		console.log(response);
+	});
+}
+
+function TestFunctionR() {
+	var key = $('#key').val();
+	console.log('密钥:', key);
+}
+//设备激活
+function activate() {
+	var key = $('#key').val();
+	console.log('密钥:', key);
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'activate', arg1: key }, function (response) {
+		console.log(response);
+	});
+}
+
+// 定义一个辅助函数来将字节转换为MB
+function convertBytesToMB(bytes) {
+	return (bytes / (1024 * 1024)).toFixed(2); // 将字节转换为MB并保留两位小数
+}
+
+fetchFile('/license.txt');
+// 开始记录函数
+function RecordButton() {
+	$.getJSON('/status.json', {}, function (data) {
+
+		if (data.status_s.pos_s == 'close') {
+			var time = get_time();
+
+			$.post('/cgi-bin/cmd.cgi', { cmd: 'storeopen', arg1: time }, function (response) {
+				console.log(response);
+
+				setTimeout(function () {
+					$.post('/cgi-bin/cmd.cgi', { cmd: 'lidarstoreopen', arg1: time }, function (response) {
+						console.log(response);
+					});
+				}, 1000);
+
+			});
+		}
+		else {
+			$.post('/cgi-bin/cmd.cgi', { cmd: 'lidarstoreclose' }, function (response) {
+				console.log(response);
+
+				setTimeout(function () {
+					$.post('/cgi-bin/cmd.cgi', { cmd: 'storeclose' }, function (response) {
+						console.log(response);
+					});
+				}, 1000);
+			});
+		}
+	});
+}
+// 定义更多设置函数
+function MoreSettings() {
+	var MoreSettings = document.querySelector('.MoreSettings');
+	// 切换RTK_Info的显示状态
+	if (MoreSettings.style.display === 'none') {
+		MoreSettings.style.display = 'block';
+	} else {
+		MoreSettings.style.display = 'none';
+	}
+}
+//限制RTK信息输入,不允许空格
+document.addEventListener('DOMContentLoaded', (event) => {
+	// 获取所有的输入框
+	const inputs = document.querySelectorAll('.RTK_Info input');
+
+	inputs.forEach(input => {
+		input.addEventListener('input', function () {
+			// 替换掉输入值中的所有空格
+			this.value = this.value.replace(/\s/g, '');
+		});
+	});
+});
+
+//从JSON中读取RTK信息并显示
+function loadRTKData() {
+	$.getJSON('/rtk.json', function (data) {
+		// 读取数据并填充到输入框
+		document.getElementById("param1").value = data.rtk_s.ip_addr;
+		document.getElementById("param2").value = data.rtk_s.port;
+		document.getElementById("param3").value = data.rtk_s.mountpoint;
+		document.getElementById("param4").value = data.rtk_s.account;
+		document.getElementById("param5").value = data.rtk_s.passwd;
+	});
+}
+
+//重启设备
+function SystemRestart() {
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'reboot' }, function (response) {
+		console.log(response);
+	});
+}
+
+//设置控制点
+function ControlPointSet() {
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'controlpointset' }, function (response) {
+		console.log(response);
+	});
+}
+
+//监听键盘事件
+// 初始化一个数组来存储用户的按键序列
+var userInput = [];
+// 定义目标按键序列，使用键的标识符
+var konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a', 'b', 'a'];
+
+document.addEventListener('keydown', function (event) {
+	userInput.push(event.key); // 将用户输入的按键添加到数组中
+
+	// 如果用户输入的序列长度超过目标序列，移除最早的按键以匹配长度
+	if (userInput.length > konamiCode.length) {
+		userInput.shift(); // 移除数组中的第一个元素
+	}
+
+	// 检查用户输入的序列是否与目标序列匹配
+	if (userInput.join('') === konamiCode.join('')) {
+		// 如果匹配，则显示按钮
+		document.getElementById('RepeatTimes').style.display = 'block';
+		document.getElementById('SingleDuration').style.display = 'block';
+		document.getElementById('specialButton').style.display = 'block';
+	}
+});
+
+
+//重复测试
+function RepeatTest() {
+	var RepeatTimes = $('#RepeatTimes').val();
+	var SingleDuration = $('#SingleDuration').val();
+	$.post('/cgi-bin/cmd.cgi', { cmd: 'RepeatTest', arg1: RepeatTimes, arg2: SingleDuration }, function (response) {
+		console.log(response);
+	});
+}
+
+// 加载视频文件列表到下拉菜单
+function refreshVideoList() {
+	$.getJSON('/cameraFilesList.json', {}, function (data) {
+		var videoList = document.getElementById("videoList");
+		videoList.innerHTML = ''; // 清空现有的选项
+
+		data.files.forEach(function (file) {
+			var option = document.createElement('option');
+			option.value = file;
+			option.innerText = file;
+			videoList.appendChild(option);
+		});
+	});
+}
+
+// 修改后的打印选中的视频文件到控制台的函数，根据currentLanguage变量显示中英文提示
+function printSelectedVideo() {
+	$.getJSON('/status.json', {}, function (statusData) {
+		var cameraStatus = statusData.status_s.camera_s;
+
+		if (cameraStatus === "close") {
+			// 根据currentLanguage的值显示不同的提示信息
+			var alertMessage;
+
+			switch (languageState) {
+				case 'EN':
+					alertMessage = 'Camera is not connected!';
+					break;
+				case 'CN':
+					alertMessage = '相机未连接！';
+					break;
+				case 'SP':
+					alertMessage = 'Cámara no conectada!';
+					break;
+				case 'JP':
+					alertMessage = 'カメラが接続されていません！';
+					break;
+				case 'KR':
+					alertMessage = '카메라가 연결되지 않았습니다!';
+					break;
+				case 'RU':
+					alertMessage = 'Камера не подключена!';
+					break;
+				case 'AR':
+					alertMessage = 'الكاميرا غير متصلة!';
+					break;
+			}
+			alert(alertMessage);
+		} else {
+			var videoList = document.getElementById("videoList");
+			var selectedVideo = videoList.options[videoList.selectedIndex].value;
+			$.post('/cgi-bin/cmd.cgi', { cmd: 'WebDownloadFileFromCamera', arg1: selectedVideo }, function (response) {
+				console.log(response);
+			});
+		}
+	});
+}
+
+function JumpToSpecifiedPage() {
+	window.location.href = 'http://192.168.0.30:9222';
+}
+
+// 在页面加载完成后执行语言初始化
+document.addEventListener('DOMContentLoaded', function () {
+	SetVariablesFromFile();
+	refreshVideoList();
+});
